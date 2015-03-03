@@ -3,10 +3,15 @@ language: cpp
 
 matrix:
   include:
-    - compiler: clang
+    - os: linux
+      compiler: clang
       env: BUILD_WRAPPING=on NPROC=8
-    - compiler: gcc
+    - os: linux
+      compiler: gcc
       env: BUILD_WRAPPING=off NPROC=3
+    - os: osx
+      compiler: clang
+      env: BUILD_WRAPPING=off NPROC=8
 
 env:
   global:
@@ -15,21 +20,21 @@ env:
 
 before_install:
   ## Install CMake 2.8.8 (for CMakePackageConfigHelpers).
-  - sudo add-apt-repository ppa:kalakris/cmake -y
-  - sudo apt-get update -qq
-  - sudo apt-get install cmake
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then sudo add-apt-repository ppa:kalakris/cmake -y; fi
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then sudo apt-get update -qq; fi
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then sudo apt-get install cmake; fi
   ## Get Simbody and its dependencies.
-  - sudo apt-get update -qq
-  - sudo apt-get install -qq liblapack-dev
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then sudo apt-get update -qq; fi
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then sudo apt-get install -qq liblapack-dev; fi
   # Must get a newer gcc so we can compile with C++11,
   # when using gcc OR Clang.
   # from https://github.com/travis-ci/travis-ci/issues/979.
-  - sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
-  - sudo apt-get update -qq
-  - sudo apt-get install -qq g++-4.8
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y; fi
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then sudo apt-get update -qq; fi
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then sudo apt-get install -qq g++-4.8; fi
   # Only if compiling with gcc, update environment variables
   # to use the new gcc.
-  - if [ "$CXX" = "g++" ]; then export CXX="g++-4.8" CC="gcc-4.8"; fi
+  - if [[ "$TRAVIS_OS_NAME" = "linux" && "$CXX" = "g++" ]]; then export CXX="g++-4.8" CC="gcc-4.8"; fi
   # Clone Simbody into the Simbody directory. Don't need its history, and
   # only need the master branch.
   - git clone https://github.com/simbody/simbody.git ~/simbody-source --depth 1 --branch master
@@ -45,16 +50,16 @@ before_install:
   - make -j8 install
 
   ## Install SWIG to build Java/python wrapping.
-  - mkdir ~/swig-source && cd ~/swig-source
-  - wget http://prdownloads.sourceforge.net/swig/$SWIG.tar.gz
-  - tar xzf $SWIG.tar.gz && cd $SWIG
-  - ./configure && make && sudo make -j8 install
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then mkdir ~/swig-source && cd ~/swig-source; fi
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then wget http://prdownloads.sourceforge.net/swig/$SWIG.tar.gz; fi
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then tar xzf $SWIG.tar.gz && cd $SWIG; fi
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then ./configure && make && sudo make -j8 install; fi
 
   ## Detect if we should check memory leaks with valgrind.
-  - cd $TRAVIS_BUILD_DIR
-  - git log --format=%B --no-merges -n 1 | grep '\[ci valgrind\]'; export RUN_VALGRIND=$?; true
-  - if [ $RUN_VALGRIND = "0" ]; then sudo apt-get install -qq valgrind; fi
-  - if [ $RUN_VALGRIND = "0" ]; then export CTEST_FLAGS="-D ExperimentalMemCheck"; fi
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then cd $TRAVIS_BUILD_DIR; fi
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then git log --format=%B --no-merges -n 1 | grep '\[ci valgrind\]'; export RUN_VALGRIND=$?; true; fi
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then if [ $RUN_VALGRIND = "0" ]; then sudo apt-get install -qq valgrind; fi; fi
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then if [ $RUN_VALGRIND = "0" ]; then export CTEST_FLAGS="-D ExperimentalMemCheck"; fi; fi
 
 install:
   - mkdir ~/opensim-core-build && cd ~/opensim-core-build
@@ -68,7 +73,7 @@ script:
   - ctest -j8 --output-on-failure $CTEST_FLAGS
 
   ## Print out valgrind output.
-  - if [ $RUN_VALGRIND ]; then find Testing/Temporary -name "MemoryCheck*" -print | xargs cat; fi
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then if [ $RUN_VALGRIND ]; then find Testing/Temporary -name "MemoryCheck*" -print | xargs cat; fi; fi
 
   ## Test python wrapping.
   # Install OpenSim. Suppress output.
