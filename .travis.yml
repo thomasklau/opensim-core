@@ -1,6 +1,10 @@
 # To learn about this file, go to http://docs.travis-ci.com/user/languages/c/
 language: cpp
 
+os:
+ - linux
+ - osx
+
 matrix:
   include:
     - os: linux
