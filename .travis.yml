@@ -2,8 +2,8 @@
 language: cpp
 
 os:
- - linux
- - osx
+  - linux
+  - osx
 
 matrix:
   include:
