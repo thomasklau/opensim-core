@@ -13,9 +13,6 @@ matrix:
     - os: linux
       compiler: gcc
       env: BUILD_WRAPPING=off NPROC=3
-    - os: osx
-      compiler: clang
-      env: BUILD_WRAPPING=off NPROC=8
 
 env:
   global:
