@@ -1762,7 +1762,7 @@ Ground& Model::updGround()
 int Model::getNumControls() const
 {
     if(!_system){
-        throw Exception("Model::getNumControls() requires an initialized Model./n" 
+        throw Exception("Model::getNumControls() requires an initialized Model./n"
             "Prior Model::initSystem() required.");
     }
 
@@ -1774,39 +1774,42 @@ int Model::getNumControls() const
 Vector& Model::updControls(const SimTK::State &s) const
 {
     if( (!_system) || (!_modelControlsIndex.isValid()) ){
-        throw Exception("Model::updControls() requires an initialized Model./n" 
+        throw Exception("Model::updControls() requires an initialized Model./n"
             "Prior call to Model::initSystem() is required.");
     }
 
-    // direct the system shared cache 
-    Measure_<Vector>::Result controlsCache = 
+    // direct the system shared cache
+    Measure_<Vector>::Result controlsCache =
         Measure_<Vector>::Result::getAs(_system->updDefaultSubsystem()
             .getMeasure(_modelControlsIndex));
+    // update the locally stored pointer to the controlsCache
+    const_cast<Model*>(this)->_controlsCache = controlsCache;
+    
     return controlsCache.updValue(s);
 }
 
 void Model::markControlsAsValid(const SimTK::State& s) const
 {
     if( (!_system) || (!_modelControlsIndex.isValid()) ){
-        throw Exception("Model::markControlsAsValid() requires an initialized Model./n" 
+        throw Exception("Model::markControlsAsValid() requires an initialized Model./n"
             "Prior call to Model::initSystem() is required.");
     }
 
-    Measure_<Vector>::Result controlsCache = 
+    Measure_<Vector>::Result controlsCache =
         Measure_<Vector>::Result::getAs(_system->updDefaultSubsystem()
             .getMeasure(_modelControlsIndex));
     controlsCache.markAsValid(s);
 }
 
 void Model::setControls(const SimTK::State& s, const SimTK::Vector& controls) const
-{   
+{
     if( (!_system) || (!_modelControlsIndex.isValid()) ){
-        throw Exception("Model::setControls() requires an initialized Model./n" 
+        throw Exception("Model::setControls() requires an initialized Model./n"
             "Prior call to Model::initSystem() is required.");
     }
 
-    // direct the system shared cache 
-    Measure_<Vector>::Result controlsCache = 
+    // direct the system shared cache
+    Measure_<Vector>::Result controlsCache =
         Measure_<Vector>::Result::getAs(_system->updDefaultSubsystem()
         .getMeasure(_modelControlsIndex));
     controlsCache.setValue(s, controls);
@@ -1821,23 +1824,14 @@ void Model::setControls(const SimTK::State& s, const SimTK::Vector& controls) co
 const Vector& Model::getControls(const SimTK::State &s) const
 {
     if( (!_system) || (!_modelControlsIndex.isValid()) ){
-        throw Exception("Model::getControls() requires an initialized Model./n" 
+        throw Exception("Model::getControls() requires an initialized Model./n"
             "Prior call to Model::initSystem() is required.");
     }
 
-    // direct the system shared cache 
-    Measure_<Vector>::Result controlsCache = Measure_<Vector>::Result::getAs(_system->updDefaultSubsystem().getMeasure(_modelControlsIndex));
-
-    if(!controlsCache.isValid(s)){
-        // Always reset controls to their default values before computing controls
-        // since default behavior is for controllors to "addInControls" so there should be valid
-        // values to begin with.
-        controlsCache.updValue(s) = _defaultControls;
-        computeControls(s, controlsCache.updValue(s));
-        controlsCache.markAsValid(s);
-    }
-
-    return controlsCache.getValue(s);
+    // _controlsCache assumes that the controls cache will not be changed or
+    // invalidated between the realization of Stage::Velocity and
+    // Stage::Dynamics
+    return _controlsCache.getValue(s);
 }
 
 
@@ -2079,7 +2073,28 @@ void Model::realizeReport(const SimTK::State& state) const
 {
     getSystem().realize(state, Stage::Report);
 }
+//------------------------------------------------------------------------------
+//       OVERRIDDEN METHOD TO COMPUTE CONTROLS DURING REALIZE VELOCITY
+//------------------------------------------------------------------------------
+void Model::extendRealizeVelocity(const SimTK::State& state) const
+{
+    Super::extendRealizeVelocity(state);
+    Measure_<Vector>::Result controlsCache = Measure_<Vector>::Result::getAs(
+               _system->updDefaultSubsystem().getMeasure(_modelControlsIndex));
 
+    //Calculate the controls cache before we realize dynamics and call calcForces (possibly in parallel).
+    //Note: If the shared controls cache is calculated inside of calcForces and the force in which it is
+    //being calculated is parallel, a data race may occur to mark the controlsCache as valid/invalid.
+    if(!controlsCache.isValid(state)){
+        // Always reset controls to their default values before computing controls
+        // since default behavior is for controllors to "addInControls" so there should be valid
+        // values to begin with.
+        controlsCache.updValue(state) = _defaultControls;
+        computeControls(state, controlsCache.updValue(state));
+        controlsCache.markAsValid(state);
+    }
+    const_cast<Model*>(this)->_controlsCache = controlsCache;
+}
 
 /**
  * Compute the derivatives of the generalized coordinates and speeds.

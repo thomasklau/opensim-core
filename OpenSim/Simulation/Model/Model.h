@@ -973,6 +973,8 @@ private:
     void constructOutputs() override;
 
     void createAssemblySolver(const SimTK::State& s);
+    
+    void extendRealizeVelocity(const SimTK::State& state) const override;
 
     // To provide access to private _modelComponents member.
     friend class Component; 
@@ -1022,6 +1024,7 @@ private:
     // initializeState() or initSystem() is called.
     SimTK::State _workingState;
 
+    SimTK::Measure_<SimTK::Vector>::Result _controlsCache;
 
     //--------------------------------------------------------------------------
     //                              RUN TIME 
@@ -1080,4 +1083,3 @@ private:
 } // end of namespace OpenSim
 
 #endif // OPENSIM_MODEL_H_
-
